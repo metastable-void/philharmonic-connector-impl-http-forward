@@ -1,6 +1,6 @@
 [package]
 name = "philharmonic-connector-impl-http-forward"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0 OR MPL-2.0"
@@ -9,6 +9,24 @@ repository = "https://github.com/metastable-void/philharmonic-connector-impl-htt
 description = "Generic HTTP forwarding connector implementation for Philharmonic, built on mechanics-config's HttpEndpoint schema (http_forward capability)."
 
 [dependencies]
+async-trait = "0.1"
+base64 = "0.22"
+futures-util = "0.3"
+httpdate = "1"
+mechanics-config = "0.1"
+philharmonic-connector-common = "0.2"
+philharmonic-connector-impl-api = "0.1"
+rand = "0.9"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "stream", "gzip", "deflate", "brotli"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt", "macros", "time"] }
+url = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros", "time", "test-util"] }
+wiremock = "0.6"
 
 [profile.release]
 opt-level = 3

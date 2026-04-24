@@ -9,10 +9,20 @@ this crate adheres to
 
 ## [Unreleased]
 
-Implementation pending. See the
-[Philharmonic workspace ROADMAP](https://github.com/metastable-void/philharmonic-workspace/blob/main/ROADMAP.md)
-for the phase that populates this crate.
+## [0.1.0] - 2026-04-24
 
-## [0.0.0]
+### Added
 
-Name reservation on crates.io. No functional content yet.
+- Initial substantive `http_forward` implementation of the
+  `philharmonic-connector-impl-api` `Implementation` trait.
+- Config/request/response/runtime modules covering:
+  - `mechanics-config::HttpEndpoint`-backed config validation and runtime preparation.
+  - camelCase request deserialization and endpoint body-mode request encoding.
+  - streamed response-size enforcement, response-body decoding, and exposed-header filtering.
+  - full-jitter retry loop with Retry-After handling and overall retry deadline enforcement.
+  - internal error taxonomy with explicit mapping to `ImplementationError`.
+- Unit tests for config validation, request decoding, response header normalization,
+  retry primitives, and error mapping.
+- Wiremock-backed integration tests for happy paths, error cases,
+  retry behavior, and fixed outbound request vectors.
+
