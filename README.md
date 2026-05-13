@@ -4,7 +4,8 @@ Part of the Philharmonic workspace: https://github.com/metastable-void/philharmo
 
 `philharmonic-connector-impl-http-forward` provides the `http_forward`
 connector implementation: it deserializes a `mechanics-config::HttpEndpoint`
-configuration, validates and executes outbound HTTP calls with `reqwest`,
+configuration, validates and executes outbound HTTP calls with
+`mechanics-http-client` (hyper-rustls + webpki-roots + aws-lc-rs),
 applies endpoint retry policy and response-size limits, and returns a
 normalized response payload through the shared
 `philharmonic-connector-impl-api` contract.

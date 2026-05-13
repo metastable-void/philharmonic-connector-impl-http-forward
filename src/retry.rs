@@ -17,7 +17,7 @@ use rand::Rng;
 use std::time::{Duration, Instant, SystemTime};
 
 pub(crate) async fn execute_with_retry(
-    client: &reqwest::Client,
+    client: &mechanics_http_client::Client,
     prepared: &PreparedConfig,
     request: &HttpForwardRequest,
     _ctx: &ConnectorCallContext,

@@ -34,18 +34,18 @@ const NAME: &str = "http_forward";
 /// `http_forward` connector implementation.
 #[derive(Clone, Debug)]
 pub struct HttpForward {
-    client: reqwest::Client,
+    client: mechanics_http_client::Client,
 }
 
 impl HttpForward {
-    /// Builds an instance with a workspace-standard reqwest client.
+    /// Builds an instance with a workspace-standard HTTP client.
     pub fn new() -> Result<Self, ImplementationError> {
         let client = client::build_client().map_err(ImplementationError::from)?;
         Ok(Self { client })
     }
 
-    /// Builds an instance with an externally-configured reqwest client.
-    pub fn with_client(client: reqwest::Client) -> Self {
+    /// Builds an instance with an externally-configured HTTP client.
+    pub fn with_client(client: mechanics_http_client::Client) -> Self {
         Self { client }
     }
 }

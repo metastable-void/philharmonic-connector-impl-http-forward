@@ -1,6 +1,6 @@
 //! HTTP client plumbing for `http_forward`.
 //!
-//! This module owns reqwest client construction and one-attempt
+//! Owns `mechanics_http_client::Client` construction and one-attempt
 //! execution. Retry policy is layered above this in `retry.rs`.
 
 use crate::{
@@ -12,16 +12,15 @@ use crate::{
     },
 };
 use mechanics_config::HttpMethod;
+use mechanics_http_client::{Client, Error as HttpError, HeaderMap, Method};
 use std::time::Duration;
 
-pub(crate) fn build_client() -> Result<reqwest::Client> {
-    reqwest::Client::builder()
-        .build()
-        .map_err(|e| Error::Internal(format!("failed to build reqwest client: {e}")))
+pub(crate) fn build_client() -> Result<Client> {
+    Client::new().map_err(|e| Error::Internal(format!("failed to build HTTP client: {e}")))
 }
 
 pub(crate) async fn execute_one_attempt(
-    client: &reqwest::Client,
+    client: &Client,
     prepared: &PreparedConfig,
     request: &HttpForwardRequest,
 ) -> Result<HttpForwardResponse> {
@@ -31,8 +30,6 @@ pub(crate) async fn execute_one_attempt(
         .endpoint
         .build_url(&request.url_params, &request.queries)
         .map_err(|e| Error::InvalidRequest(e.to_string()))?;
-    let url = reqwest::Url::parse(&url)
-        .map_err(|e| Error::InvalidRequest(format!("invalid outbound URL: {e}")))?;
 
     let layered_headers = prepared
         .endpoint
@@ -45,33 +42,27 @@ pub(crate) async fn execute_one_attempt(
         request.body.as_ref(),
     )?;
 
-    let mut builder = client.request(as_reqwest_method(method), url);
+    let mut builder = client.request(as_http_method(method), url);
 
     if let Some(timeout_ms) = prepared.endpoint.timeout_ms() {
         builder = builder.timeout(Duration::from_millis(timeout_ms));
     }
 
     for (name, value) in &layered_headers {
-        builder = builder.header(name, value);
+        builder = builder.header(name.as_str(), value.as_str());
     }
 
     if let Some(content_type) = default_content_type
         && !has_content_type_header(&layered_headers)
     {
-        builder = builder.header(reqwest::header::CONTENT_TYPE, content_type);
+        builder = builder.header("content-type", content_type);
     }
 
     if let Some(bytes) = body_bytes {
         builder = builder.body(bytes);
     }
 
-    let response = builder.send().await.map_err(|err| {
-        if err.is_timeout() {
-            Error::UpstreamTimeout
-        } else {
-            Error::UpstreamUnreachable(err.to_string())
-        }
-    })?;
+    let response = builder.send().await.map_err(map_http_error)?;
 
     let status = response.status().as_u16();
     let ok = (200..=299).contains(&status);
@@ -102,26 +93,34 @@ pub(crate) async fn execute_one_attempt(
     })
 }
 
-fn as_reqwest_method(method: HttpMethod) -> reqwest::Method {
+fn as_http_method(method: HttpMethod) -> Method {
     match method {
-        HttpMethod::Get => reqwest::Method::GET,
-        HttpMethod::Post => reqwest::Method::POST,
-        HttpMethod::Put => reqwest::Method::PUT,
-        HttpMethod::Patch => reqwest::Method::PATCH,
-        HttpMethod::Delete => reqwest::Method::DELETE,
-        HttpMethod::Head => reqwest::Method::HEAD,
-        HttpMethod::Options => reqwest::Method::OPTIONS,
+        HttpMethod::Get => Method::GET,
+        HttpMethod::Post => Method::POST,
+        HttpMethod::Put => Method::PUT,
+        HttpMethod::Patch => Method::PATCH,
+        HttpMethod::Delete => Method::DELETE,
+        HttpMethod::Head => Method::HEAD,
+        HttpMethod::Options => Method::OPTIONS,
+    }
+}
+
+pub(crate) fn map_http_error(error: HttpError) -> Error {
+    if error.is_timeout() {
+        Error::UpstreamTimeout
+    } else {
+        Error::UpstreamUnreachable(error.to_string())
     }
 }
 
 fn has_content_type_header(headers: &[(String, String)]) -> bool {
     headers
         .iter()
-        .any(|(name, _)| name.eq_ignore_ascii_case(reqwest::header::CONTENT_TYPE.as_str()))
+        .any(|(name, _)| name.eq_ignore_ascii_case("content-type"))
 }
 
-fn retry_after_header(headers: &reqwest::header::HeaderMap) -> Option<String> {
-    headers.get(reqwest::header::RETRY_AFTER).map(|value| {
+fn retry_after_header(headers: &HeaderMap) -> Option<String> {
+    headers.get("retry-after").map(|value| {
         value
             .to_str()
             .map(str::to_owned)

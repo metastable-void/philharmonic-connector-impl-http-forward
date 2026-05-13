@@ -9,6 +9,19 @@ this crate adheres to
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-13
+
+Changed (breaking): outbound HTTP is now driven by `mechanics-http-client`
+(hyper-rustls + webpki-roots + aws-lc-rs) instead of `reqwest`.
+
+- `HttpForward::with_client(reqwest::Client)` →
+  `HttpForward::with_client(mechanics_http_client::Client)`.
+- Removed: the `reqwest` dependency.
+- Trust posture: TLS root store is the bundled Mozilla CA bundle
+  (`webpki-roots`) only — no OS-native trust, no
+  `rustls-platform-verifier`. Crypto provider is `aws-lc-rs`;
+  `ring` is no longer in the dep graph.
+
 ## [0.1.0] - 2026-04-24
 
 ### Added

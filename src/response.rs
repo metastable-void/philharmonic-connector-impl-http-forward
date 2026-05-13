@@ -4,10 +4,11 @@
 //! wire shape `{status, ok, headers, body}`. Header exposure follows
 //! the endpoint allowlist, and body decoding follows `EndpointBodyType`.
 
+use crate::client::map_http_error;
 use crate::error::{Error, Result};
 use base64::Engine;
-use futures_util::StreamExt;
 use mechanics_config::EndpointBodyType;
+use mechanics_http_client::{HeaderMap, Response};
 use philharmonic_connector_impl_api::JsonValue;
 use std::collections::{BTreeMap, HashSet};
 
@@ -26,7 +27,7 @@ pub struct HttpForwardResponse {
 }
 
 pub(crate) fn extract_exposed_headers(
-    headers: &reqwest::header::HeaderMap,
+    headers: &HeaderMap,
     allowlist: &HashSet<String>,
 ) -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
@@ -50,10 +51,7 @@ pub(crate) fn extract_exposed_headers(
     out
 }
 
-pub(crate) async fn read_response_body(
-    response: reqwest::Response,
-    limit: usize,
-) -> Result<Vec<u8>> {
+pub(crate) async fn read_response_body(response: Response, limit: usize) -> Result<Vec<u8>> {
     if let Some(content_length) = response.content_length()
         && content_length > u64::try_from(limit).unwrap_or(u64::MAX)
     {
@@ -64,34 +62,16 @@ pub(crate) async fn read_response_body(
         return Err(Error::ResponseTooLarge { limit, actual });
     }
 
-    let mut stream = response.bytes_stream();
-    let mut body = Vec::<u8>::new();
-
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|err| {
-            if err.is_timeout() {
-                Error::UpstreamTimeout
-            } else {
-                Error::UpstreamUnreachable(err.to_string())
-            }
-        })?;
-
-        let next_len = body
-            .len()
-            .checked_add(chunk.len())
-            .ok_or_else(|| Error::Internal("response body length overflow".to_owned()))?;
-
-        if next_len > limit {
-            return Err(Error::ResponseTooLarge {
+    match response.bytes_with_cap(limit).await {
+        Ok(bytes) => Ok(bytes.to_vec()),
+        Err(mechanics_http_client::Error::BodyTooLarge { limit, seen }) => {
+            Err(Error::ResponseTooLarge {
                 limit,
-                actual: next_len,
-            });
+                actual: seen.saturating_add(1),
+            })
         }
-
-        body.extend_from_slice(&chunk);
+        Err(other) => Err(map_http_error(other)),
     }
-
-    Ok(body)
 }
 
 pub(crate) fn decode_response_body(body_type: EndpointBodyType, bytes: &[u8]) -> Result<JsonValue> {
@@ -125,7 +105,7 @@ pub(crate) fn decode_response_body(body_type: EndpointBodyType, bytes: &[u8]) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+    use mechanics_http_client::{HeaderName, HeaderValue};
 
     #[test]
     fn header_keys_lowercased() {
