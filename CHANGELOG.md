@@ -9,6 +9,13 @@ this crate adheres to
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-14
+
+### Changed
+- Internal Cargo.toml audit: `default-features = false` set on
+  direct dependencies with explicit feature lists for what the
+  crate actually uses. No behaviour change. (D24)
+
 ## [0.2.0] - 2026-05-13
 
 Changed (breaking): outbound HTTP is now driven by `mechanics-http-client`
@@ -38,4 +45,3 @@ Changed (breaking): outbound HTTP is now driven by `mechanics-http-client`
   retry primitives, and error mapping.
 - Wiremock-backed integration tests for happy paths, error cases,
   retry behavior, and fixed outbound request vectors.
-
