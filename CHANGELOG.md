@@ -9,6 +9,18 @@ this crate adheres to
 
 ## [Unreleased]
 
+### Fixed
+- `build_client` now constructs its mhc `Client` with
+  `pool_max_idle_per_host(0)`, disabling idle TCP / H2 / H3
+  connection reuse for the upstream forwarded hop. The
+  previous default reuse policy meant a second forwarded
+  request to the same upstream could pick up a stale
+  keep-alive connection the peer had already half-closed,
+  surfacing as `Error::Cancelled` on the second call. For
+  HTTP-forward connector traffic the reconnect cost is small
+  relative to the harm of returning a transport error to a
+  workflow run; reconnect now happens per-request.
+
 ## [0.2.1] - 2026-05-14
 
 ### Changed
